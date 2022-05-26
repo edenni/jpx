@@ -1,11 +1,12 @@
-from cProfile import label
-from tabnanny import verbose
-import warnings
+import logging
+import sys
 
 import numpy as np
 import pandas as pd
 # import lightgbm as lgb
 import xgboost as xgb
+import optuna
+optuna.logging.set_verbosity(optuna.logging.CRITICAL)
 
 from data import read_data
 from fe import preprocess, create_features
@@ -15,6 +16,9 @@ FOLDS = 5
 GROUP_GAP = 20
 MAX_TEST_GROUP_SIZE = 60
 MAX_TRAIN_GROUP_SIZE = 200
+
+
+
 params = {
     'objective': 'reg:squarederror',
     'eval_metric': "rmse",
@@ -23,7 +27,25 @@ params = {
     'colsample_bytree': 0.6,
     'learning_rate': 0.05,
 }
-def train(cv, X, y, groups, nfold=5):
+
+def objective_wrapper(cv, X, y, groups):
+    def objective(trial):
+        params = {
+            'objective': 'reg:squarederror',
+            'eval_metric': "rmse",
+            # 'tree_method': 'gpu_hist',
+            'learning_rate': 0.01,
+            'max_depth': trial.suggest_int('max_depth', 6, 9),
+            'subsample': trial.suggest_uniform('subsample', 0.4, 0.8),
+            'colsample_bytree': trial.suggest_uniform('colsample_bytree', 0.4, 0.8),
+            'lambda': trial.suggest_uniform('lambda', 1, 2),
+            'max_bin': trial.suggest_uniform('max_bin', 128, 256),
+        }
+
+        return train(cv, X, y, groups, params)
+    return objective
+
+def train(cv, X, y, groups):
 
     print('Start training...')
     res = []
@@ -38,7 +60,7 @@ def train(cv, X, y, groups, nfold=5):
         dval = xgb.DMatrix(X_val_nodate, label=y_val)
         watchlist = [(dtrain, 'train'), (dval, 'val')]
 
-        model = xgb.train(params, dtrain, 1000, verbose_eval=50, evals=watchlist, early_stopping_rounds=30)
+        model = xgb.train(params, dtrain, 1000, verbose_eval=False, evals=watchlist, early_stopping_rounds=30)
 
         pred = model.predict(dval)
 
@@ -52,11 +74,10 @@ def train(cv, X, y, groups, nfold=5):
         print(f'[FOLD {fold+1}] {sharpe=}')
 
     print(f'Training finished\n Mean sharpe = {np.mean(res)}')
-
-
-
+    return np.mean(res)
 
 def main():
+
     file_paths = {
         'price': 'input/jpx-tokyo-stock-exchange-prediction/train_files/stock_prices.csv',
         'list': 'input/jpx-tokyo-stock-exchange-prediction/stock_list.csv',
@@ -88,7 +109,11 @@ def main():
         max_train_group_size = MAX_TRAIN_GROUP_SIZE, 
         max_test_group_size = MAX_TEST_GROUP_SIZE)
 
-    train(cv, X, y, groups)
+    optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
+    study_name = "jpx-study"  # Unique identifier of the study.
+    storage_name = "sqlite:///{}.db".format(study_name)
+    study = optuna.create_study(study_name=study_name, storage=storage_name)
+    study.optimize(objective_wrapper(cv, X, y, groups), n_trials=100)
 
 if __name__ == '__main__':
     main()
