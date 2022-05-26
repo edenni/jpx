@@ -168,3 +168,27 @@ def adjust_price(price):
 
     # price.set_index("Date", inplace=True)
     return price
+
+def calc_spread_return_per_day(df, portfolio_size, toprank_weight_ratio):
+    weights = np.linspace(start=toprank_weight_ratio, stop=1, num=portfolio_size)
+    weights_mean = weights.mean()
+    df = df.sort_values(by='Rank')
+    purchase = (df['Target'][:portfolio_size]  * weights).sum() / weights_mean
+    short    = (df['Target'][-portfolio_size:] * weights[::-1]).sum() / weights_mean
+    return purchase - short
+
+def calc_spread_return_sharpe(df, portfolio_size=200, toprank_weight_ratio=2):
+    grp = df.groupby('Date')
+    min_size = grp["Target"].count().min()
+    if min_size<2*portfolio_size:
+        portfolio_size=min_size//2
+        if portfolio_size<1:
+            return 0, None
+    buf = grp.apply(calc_spread_return_per_day, portfolio_size, toprank_weight_ratio)
+    sharpe_ratio = buf.mean() / buf.std()
+    return sharpe_ratio, buf
+
+def add_rank(df, col_name="pred"):
+    df["Rank"] = df.groupby("Date")[col_name].rank(ascending=False, method="first") - 1 
+    df["Rank"] = df["Rank"].astype("int")
+    return df

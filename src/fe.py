@@ -1,10 +1,12 @@
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from utils import adjust_price
 
 
 def preprocess(dfs):
+    print('cleaning data...', end='')
     df_price, df_fin, df_list = dfs['price'], dfs['financial'], dfs['list']
 
     # pre-processing of stock price
@@ -16,11 +18,12 @@ def preprocess(dfs):
     # financials
     df_fin.replace('－', 0.0, inplace=True)
     df_fin.iloc[:, 12:] = df_fin.iloc[:, 12:].astype('float32').fillna(0)
-
+    print('Finished!')
     return dfs
 
 
 def create_features(dfs):
+    print('Creating new features for stock price...', end='')
     df_price, df_fn, df_list = dfs['price'], dfs['financial'], dfs['list']
 
     price_cols = ['Close']
@@ -76,9 +79,10 @@ def create_features(dfs):
 
     df_price_fe = pd.concat(fea_price, axis=1)
     df_price_fe = adjust_price(df_price_fe) # add adjusted close value
+    print('Finished!')
 
     # financial features
-
+    print('Creating new financial features...')
     acc_cols = ['NetSales', 'Profit', 'OperatingProfit', 'OrdinaryProfit']
     df_fn[acc_cols] = df_fn[acc_cols].replace('－', 0).astype('float32')
     # drop irregular financial quarter
@@ -128,7 +132,7 @@ def create_features(dfs):
 
     def align_quarter(df, table):
         res = []
-        for code, date in zip(df.SecuritiesCode.values, df.Date.values):
+        for code, date in tqdm(zip(df.SecuritiesCode.values, df.Date.values), total=len(df)):
             flag = False
             ts = table.get(code, None)
             if not ts:
@@ -146,10 +150,12 @@ def create_features(dfs):
     df_price_fe.Date = pd.to_datetime(df_price_fe.Date)
     df_fn.CurrentPeriodEndDate = pd.to_datetime(df_fn.CurrentPeriodEndDate)
 
+    print('Adding CurrentPeriodEndDate to price frame...')
     table = df_fn.groupby('SecuritiesCode')['CurrentPeriodEndDate'].apply(list).to_dict()
     df_price_fe['CurrentPeriodEndDate'] = align_quarter(df_price_fe, table)
 
     dfs['price'] = df_price_fe
     dfs['financial'] = df_fn
+    print('FE Finished!')
 
     return dfs
