@@ -39,13 +39,13 @@ def objective_wrapper(cv, X, y, groups):
             'subsample': trial.suggest_uniform('subsample', 0.4, 0.8),
             'colsample_bytree': trial.suggest_uniform('colsample_bytree', 0.4, 0.8),
             'lambda': trial.suggest_uniform('lambda', 1, 2),
-            'max_bin': trial.suggest_uniform('max_bin', 128, 256),
+            'max_bin': trial.suggest_int('max_bin', 128, 256),
         }
 
         return train(cv, X, y, groups, params)
     return objective
 
-def train(cv, X, y, groups):
+def train(cv, X, y, groups, params):
 
     print('Start training...')
     res = []
@@ -112,7 +112,7 @@ def main():
     optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
     study_name = "jpx-study"  # Unique identifier of the study.
     storage_name = "sqlite:///{}.db".format(study_name)
-    study = optuna.create_study(study_name=study_name, storage=storage_name)
+    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True)
     study.optimize(objective_wrapper(cv, X, y, groups), n_trials=100)
 
 if __name__ == '__main__':
