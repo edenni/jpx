@@ -6,9 +6,9 @@ Solution for kaggle jpx competition
 
 - [x] create features of stock price
 - [x] create financial features
-- [ ] combine stock list with stock price
-- [ ] cleaning raw data
-- [ ] Purged time series CV
+- [x] combine stock list with stock price
+- [x] cleaning raw data
+- [x] Purged time series CV
 - [ ] LGBRanker or LGBRegressor
 - [ ] Denoise AutoEncoder structure
 
