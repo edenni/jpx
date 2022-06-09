@@ -48,7 +48,7 @@ def objective_wrapper(cv, X, y, groups):
             'colsample_bytree': trial.suggest_uniform('colsample_bytree', 0.4, 0.6),
             'lambda': trial.suggest_uniform('lambda', 1, 5),
             'max_bin': trial.suggest_int('max_bin', 100, 200),
-            'alpha': trial.suggest_categorical('lambda', [1, 5, 10, 30, 60, 100]),
+            'alpha': trial.suggest_categorical('alpha', [1, 5, 10, 30, 60, 100]),
             'min_child_weight': trial.suggest_uniform('min_child_weight', 1, 5),
             'min_split_loss': trial.suggest_uniform('min_split_loss', 0, 1),
         }
@@ -94,12 +94,8 @@ def main(read_preprocessed=True):
         'price': '../input/jpx-tokyo-stock-exchange-prediction/train_files/stock_prices.csv',
         'list': '../input/jpx-tokyo-stock-exchange-prediction/stock_list.csv',
         'financial': '../input/jpx-tokyo-stock-exchange-prediction/train_files/financials.csv'
-    }
+    } 
     
-    dfs = create_features(
-        preprocess(read_data(file_paths))
-    )
-
     if not read_preprocessed:
         dfs: dict[str, pd.DataFrame] = create_features(
             preprocess(read_data(file_paths))
